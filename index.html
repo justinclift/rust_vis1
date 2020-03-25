@@ -20,8 +20,7 @@
 <body>
 	<canvas id="barchart">Your browser doesn't appear to support the canvas tag.</canvas>
 <script>
-    <!-- This *must* be declared using "var" instead of "let" or "const", otherwise it won't be in the global scope for Rust to access. -->
-    var $scope = {};
+    let $scope = {};
     $scope.db = {
         Tablename: "100m2012Autumn",
         Records: [
@@ -80,7 +79,7 @@
 		//
 		// Note that the name `wasm_bindgen` can be configured with the
 		// `--no-modules-global` CLI flag
-		const { main } = wasm_bindgen;
+		const { draw_bar_chart } = wasm_bindgen;
 
 		// Pass mouse clicks through to the wasm handler
 		function clickHandler(evt) {
@@ -110,7 +109,7 @@
 		// Launch the wasm file
 		async function run() {
 			await wasm_bindgen('./pkg/rust_vis1_bg.wasm');
-			main();
+			draw_bar_chart($scope.db);
 
 			// Set up event handlers
 			// document.addEventListener("keydown", keyPressHandler);

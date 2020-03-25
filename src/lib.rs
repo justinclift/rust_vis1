@@ -25,6 +25,8 @@ pub struct DbData {
     Offset: i32,
 }
 
+const DEBUG: bool = true;
+
 // * Helper functions, as the web_sys pieces don't seem capable of being stored in globals *
 fn window() -> web_sys::Window {
     web_sys::window().expect("no global `window` exists")
@@ -36,12 +38,51 @@ fn document() -> web_sys::Document {
         .expect("should have a document on window")
 }
 
-// DrawBarChart draws a simple bar chart, with a colour palette generated from the provided seed value
+// draw_bar_chart draws a simple bar chart, with a colour palette generated from the provided seed value
 #[wasm_bindgen]
-pub fn main() {
+pub fn draw_bar_chart(js_data: &JsValue) {
+    // Show better panic messages on the javascript console.  Useful for development
     panic::set_hook(Box::new(console_error_panic_hook::hook));
-    let canvas: web_sys::HtmlCanvasElement = document().get_element_by_id("barchart").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
 
+    // * Import the data from the web page *
+    let data: DbData = js_data.into_serde().unwrap();
+    let rows = data.Records;
+
+    // Count the number of items for each category
+    let mut highest_val = 0;
+    let mut item_counts: HashMap<&String, u32> = HashMap::new();
+    for row in &rows {
+        let cat_name = &row[10].Value;
+        let item_count = &row[12].Value;
+        let item_count: u32 = item_count.parse().unwrap();
+        if item_counts.contains_key(&cat_name) {
+            let c = item_counts[cat_name];
+            item_counts.insert(cat_name, c + item_count);
+        } else {
+            item_counts.insert(cat_name, item_count);
+        }
+    }
+
+    // Display the number of items for each category to the javascript console, for debugging purposes
+    if DEBUG {
+        for (cat, cnt) in &item_counts {
+            web_sys::console::log_4(&"Category: ".into(), &(*cat).into(), &" Count: ".into(), &(*cnt).into());
+        }
+    }
+
+    // Determine the highest count value, so we can automatically size the graph to fit
+    for (_cat, cnt) in &item_counts {
+        if cnt > &highest_val {
+            highest_val = *cnt;
+        }
+    }
+    if DEBUG {
+        web_sys::console::log_2(&"Highest count: ".into(), &highest_val.into());
+    }
+
+    // * Canvas setup *
+
+    let canvas: web_sys::HtmlCanvasElement = document().get_element_by_id("barchart").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
     let mut width = canvas.width() as f64;
     let mut height = canvas.height() as f64;
     // {
@@ -59,129 +100,87 @@ pub fn main() {
         canvas.set_attribute("width", &width.to_string());
         canvas.set_attribute("height", &height.to_string());
     }
-// canvas.set_tab_index(0); // Not sure if this is needed
-
-// fn to_js_error(error: Error) -> JsValue {
-//     JsValue::from(js_sys::Error::new(&format!("{:?}", error)))
-// }
+    // canvas.set_tab_index(0); // Not sure if this is needed
 
     // Get the 2D context for the canvas
     let ctx = canvas.get_context("2d").unwrap().unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap();
 
-    // Import the data from the web page
-    let data = js_sys::global();
-    let data = js_sys::Reflect::get(&data, &"$scope".into()).unwrap();
-    let data = js_sys::Reflect::get(&data, &"db".into()).unwrap();
-    // if db.is_object() {
-    //     web_sys::console::log_1(&"db: is object".into());
-    // } else {
-    //     web_sys::console::log_1(&"db: NOT object".into());
-    // }
-    // if db.is_undefined() {
-    //     web_sys::console::log_1(&"db: is undefined".into());
-    // } else {
-    //     web_sys::console::log_1(&"db: NOT undefined".into());
+    // Potentially useful snippet found on the web
+    // fn to_js_error(error: Error) -> JsValue {
+    //     JsValue::from(js_sys::Error::new(&format!("{:?}", error)))
     // }
 
-    let data: DbData = data.into_serde().unwrap();
-    web_sys::console::log_2(&"*** Table name ***".into(), &data.Tablename.into());
-    let rows = data.Records;
-    let num_rows = rows.len();
+    // Initial bar graph setup
 
-    // Count the number of items for each category
-    let mut highest_val = 0;
-    let item_counts: HashMap<String, i32> = HashMap::new();
-    // var row js.Value
-    let mut row: &Vec<Record>;
-    for n in rows {
-    // for (i, n) in rows.iter().enumerate() {
-    // for (i, n) in 0..num_rows.iter().enumerate() {
-    //     row = &rows[i];
-        // row = rows.Index(i);
-        // let cat_name = row[10].Value.String();
-        // let cat_name = row.Index(10).Get("Value").String();
-        // let item_count = strconv.Atoi(row.Index(12).Get("Value").String());
-        // if err != nil {
-        //     println(err)
-        // }
-        // let c = item_counts[cat_name];
-        // item_counts[cat_name] = c + item_count;
+    // Calculate the values used for controlling the graph positioning and display
+    let axis_caption_font_size = 20.0;
+    let axis_thickness = 5.0;
+    let border = 2.0;
+    let gap = 2.0;
+    let graph_border = 50.0;
+    let text_gap = 5.0;
+    let title_font_size = 25.0;
+    let unit_size = 3.0;
+    let x_count_font_size = 18.0;
+    let x_label_font_size = 20.0;
+    let top = border + gap;
+    let display_width = width - border - 1.0;
+    let display_height = height - border - 1.0;
+    let vert_size = highest_val as f64 * unit_size;
+    let base_line = display_height - ((display_height - vert_size) / 2.0);
+    let bar_label_y = base_line + x_label_font_size + text_gap + axis_thickness + text_gap;
+    let y_base = base_line + axis_thickness + text_gap;
+    let y_top = base_line - (vert_size * 1.2);
+    let y_length = y_base - y_top;
+
+    // TODO: Test integrating this with DBHub
+
+    // TODO: Calculate the graph height based upon the available size of the canvas, instead of using the current fixed unit size
+
+    // TODO: Calculate the font sizes based upon the whether they fit in their general space
+    //       We should be able to get the font size scaling down decently, without a huge effort
+
+    // Calculate the bar size, gap, and centering based upon the number of bars
+    let num_bars = item_counts.len() as f64;
+    let horiz_size = display_width - (graph_border * 2.0);
+    let b = horiz_size / num_bars;
+    let bar_width = b * 0.6;
+    let bar_gap = b - bar_width;
+    let mut bar_left= ((graph_border * 2.0) + bar_gap) / 2.0;
+    let axis_left= ((graph_border * 2.0) + bar_gap) / 2.0;
+    let axis_right= axis_left + (num_bars * bar_width) + ((num_bars - 1.0) * bar_gap) + axis_thickness + text_gap;
+
+    // Calculate the y axis units of measurement
+    let (y_max, y_step) = axis_max(highest_val);
+    let y_unit= y_length / y_max;
+    let y_unit_step= y_unit * y_step;
+
+    // TODO: Sort the categories in some useful way
+
+    // Clear the background
+    ctx.set_fill_style(&"white".into());
+    ctx.fill_rect(0.0, 0.0, width, height);
+
+    // Draw y axis marker lines
+    let y_marker_font_size = 12.0;
+    let y_marker_left = axis_left - axis_thickness - text_gap - 5.0;
+    ctx.set_stroke_style(&"rgb(220, 220, 220)".into());
+    ctx.set_fill_style(&"black".into());
+    ctx.set_font(&format!("{}", y_marker_font_size));
+    ctx.set_text_align(&"right");
+    let mut i = y_base;
+    while i >= y_top {
+        let marker_label = &format!("{}", (y_base - i) / y_unit);
+        let marker_metrics = ctx.measure_text(&marker_label).unwrap();
+        let y_marker_width = marker_metrics.width();
+        ctx.begin_path();
+        ctx.move_to(y_marker_left - y_marker_width, i);
+        ctx.line_to(axis_right, i);
+        ctx.stroke();
+        ctx.fill_text(marker_label, axis_left - 15.0, i - 4.0);
+        i -= y_unit_step;
     }
 
-    // // Determine the highest count value, so we can automatically size the graph to fit
-    // for item_count in item_counts.iter() {
-    //     if item_count > highest_val {
-    //         highest_val = item_count;
-    //     }
-    // }
-    //
-    // // Calculate the values used for controlling the graph positioning and display
-    // let axis_caption_font_size = 20.0;
-    // let axis_thickness = 5.0;
-    // let border = 2.0;
-    // let gap = 2.0;
-    // let graph_border = 50.0;
-    // let text_gap = 5.0;
-    // let title_font_size = 25.0;
-    // let unit_size = 3.0;
-    // let x_count_font_size = 18.0;
-    // let x_label_font_size = 20.0;
-    // let top = border + gap;
-    // let display_width = width - border - 1.0;
-    // let display_height = height - border - 1.0;
-    // let vert_size = highest_val * unit_size;
-    // let base_line = display_height - ((display_height - vert_size) / 2.0);
-    // let bar_label_y = base_line + x_label_font_size + text_gap + axis_thickness + text_gap;
-    // let y_base = base_line + axis_thickness + text_gap;
-    // let y_top = base_line - int(float64(vert_size)*1.2);
-    // let y_length = y_base - y_top;
-    //
-    // // TODO: Test integrating this with DBHub
-    //
-    // // TODO: Calculate the graph height based upon the available size of the canvas, instead of using the current fixed unit size
-    //
-    // // TODO: Calculate the font sizes based upon the whether they fit in their general space
-    // //       We should be able to get the font size scaling down decently, without a huge effort
-    //
-    // // Calculate the bar size, gap, and centering based upon the number of bars
-    // let num_bars = len(item_counts);
-    // let horiz_size = display_width - (graph_border * 2.0);
-    // let b = float64(horiz_size) / float64(num_bars);
-    // let bar_width = int(b * 0.6);
-    // let bar_gap = int(b - float64(bar_width));
-    // let mut bar_left= ((graph_border * 2.0) + bar_gap) / 2.0;
-    // let axis_left= ((graph_border * 2.0) + bar_gap) / 2.0;
-    // let axis_right= axis_left + (num_bars * bar_width) + ((num_bars - 1) * bar_gap) + axis_thickness + text_gap;
-    //
-    // // Calculate the y axis units of measurement
-    // let (y_max, y_step) = axisMax(highest_val);
-    // let y_unit= y_length / y_max;
-    // let y_unit_step= y_unit * y_step;
-    //
-    // // TODO: Sort the categories in some useful way
-    //
-    // // Clear the background
-    // ctx.set_fill_style(& "white");
-    // ctx.fill_rect(0, 0, width, height);
-    //
-    // // Draw y axis marker lines
-    // let y_marker_font_size = 12;
-    // let y_marker_left = axis_left - axis_thickness - text_gap - 5.0;
-    // ctx.set_stroke_style(&"rgb(220, 220, 220)");
-    // ctx.set_fill_style(&"black".into());
-    // ctx.set_font(strconv.FormatInt(int64(y_marker_font_size), 10.0)+"px serif");
-    // ctx.set_text_align(&"right".into());
-    // for i := float64(y_base); i >= float64(y_top); i -= float64(y_unit_step) {
-    //     let marker_label = strconv.FormatInt(int64((float64(y_base)-i)/float64(y_unit)), 10.0);
-    //     let marker_met = ctx.Call("measureText", marker_label);
-    //     let y_marker_width = int(marker_met.Get("width").Float());
-    //     ctx.begin_path();
-    //     ctx.move_to(y_marker_left-y_marker_width, i);
-    //     ctx.line_to(axis_right, i);
-    //     ctx.stroke();
-    //     ctx.fill_text(marker_label, axis_left-15.0, i-4.0);
-    // }
-    //
     // // Draw simple bar graph using the category data
     // let mut hue = palette as f64;
     // ctx.set_stroke_style(&"black".into());
@@ -323,21 +322,22 @@ fn hsv_to_rgb(h: f64, s: f64, v: f64) -> String {
 }
 
 // axis_max calculates the maximum value for a given axis, and the step value to use when drawing its grid lines
-fn axis_max(val: i32) -> (i32, i32) {
-    if val < 10 {
-        return (10, 1);
+fn axis_max(val: u32) -> (f64, f64) {
+    let val = val as f64;
+    if val < 10.0 {
+        return (10.0, 1.0);
     }
 
     // If val is less than 100, return val rounded up to the next 10
-    if val < 100 {
-        let x = val % 10;
-        return (val + 10 - x, 10);
+    if val < 100.0 {
+        let x = val % 10.0;
+        return (val + 10.0 - x, 10.0);
     }
 
     // If val is less than 500, return val rounded up to the next 50
-    if val < 500 {
-        let x = val % 50;
-        return (val + 50 - x, 50);
+    if val < 500.0 {
+        let x = val % 50.0;
+        return (val + 50.0 - x, 50.0);
     }
-    (1000, 100)
+    (1000.0, 100.0)
 }
