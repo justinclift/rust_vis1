@@ -25,6 +25,7 @@ pub struct DbData {
     Offset: i32,
 }
 
+const GOLDEN_RATIO_CONJUGATE: f64 = 0.6180;
 const DEBUG: bool = true;
 
 // * Helper functions, as the web_sys pieces don't seem capable of being stored in globals *
@@ -40,7 +41,7 @@ fn document() -> web_sys::Document {
 
 // draw_bar_chart draws a simple bar chart, with a colour palette generated from the provided seed value
 #[wasm_bindgen]
-pub fn draw_bar_chart(js_data: &JsValue) {
+pub fn draw_bar_chart(palette: f64, js_data: &JsValue) {
     // Show better panic messages on the javascript console.  Useful for development
     panic::set_hook(Box::new(console_error_panic_hook::hook));
 
@@ -85,11 +86,6 @@ pub fn draw_bar_chart(js_data: &JsValue) {
     let canvas: web_sys::HtmlCanvasElement = document().get_element_by_id("barchart").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
     let mut width = canvas.width() as f64;
     let mut height = canvas.height() as f64;
-    // {
-    //     // Update the height in the global
-    //     let mut h = HEIGHT.lock().unwrap();
-    //     *h = height;
-    // }
 
     // Handle window resizing
     let current_body_width = window().inner_width().unwrap().as_f64().unwrap();
@@ -105,12 +101,7 @@ pub fn draw_bar_chart(js_data: &JsValue) {
     // Get the 2D context for the canvas
     let ctx = canvas.get_context("2d").unwrap().unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap();
 
-    // Potentially useful snippet found on the web
-    // fn to_js_error(error: Error) -> JsValue {
-    //     JsValue::from(js_sys::Error::new(&format!("{:?}", error)))
-    // }
-
-    // Initial bar graph setup
+    // * Bar graph setup *
 
     // Calculate the values used for controlling the graph positioning and display
     let axis_caption_font_size = 20.0;
@@ -181,96 +172,95 @@ pub fn draw_bar_chart(js_data: &JsValue) {
         i -= y_unit_step;
     }
 
-    // // Draw simple bar graph using the category data
-    // let mut hue = palette as f64;
-    // ctx.set_stroke_style(&"black".into());
-    // ctx.set_text_align(&"center".into());
-    // for (label, num) in item_counts.iter().enumerate() {
-    //     let bar_height = num * unit_size;
-    //     hue += goldenRatioConjugate;
-    //     hue = hue % 1.0;
-    //     // hue = hue - float64(int(hue)); // Simplified version of "hue % 1"
-    //     ctx.set_font(&"bold "+strconv.FormatInt(int64(x_label_font_size), 10)+"px serif");
-    //     ctx.set_fill_style(&hsvToRgb(hue, 0.5, 0.95));
-    //     ctx.begin_path();
-    //     ctx.move_to(bar_left, base_line);
-    //     ctx.line_to(bar_left+bar_width, base_line);
-    //     ctx.line_to(bar_left+bar_width, base_line-bar_height);
-    //     ctx.line_to(bar_left, base_line-bar_height);
-    //     ctx.Call("closePath");
-    //     ctx.Call("fill");
-    //     ctx.stroke();
-    //     ctx.set_fill_style(&"black");
-    //
-    //     // Draw the bar label horizontally centered
-    //     let text_left = float64(bar_width) / 2;
-    //     ctx.fill_text(label, bar_left+int(text_left), bar_label_y);
-    //
-    //     // Draw the item count centered above the top of the bar
-    //     ctx.set_font(&format!("{}px serif", x_count_font_size));
-    //     // let s = strconv.FormatInt(int64(num), 10);
-    //     text_left = float64(bar_width) / 2;
-    //     ctx.fill_text(format!("{}", num), bar_left+int(text_left), base_line-bar_height-text_gap);
-    //     bar_left += bar_gap + bar_width;
-    // }
-    //
-    // // Draw axis
-    // ctx.set_line_width(&axis_thickness);
-    // ctx.begin_path();
-    // ctx.move_to(axis_right, y_base);
-    // ctx.line_to(axis_left-axis_thickness-text_gap, y_base);
-    // ctx.line_to(axis_left-axis_thickness-text_gap, y_top);
-    // ctx.stroke();
-    //
-    // // Draw title
-    // let title = "Marine Litter Survey - Keep Northern Ireland Beautiful";
-    // ctx.set_font(&"bold "+strconv.FormatInt(int64(title_font_size), 10.0)+"px serif");
-    // ctx.set_text_align( "center");
-    // let title_left = display_width / 2.0;
-    // ctx.fill_text(title, title_left, top+title_font_size+20.0);
-    //
-    // // Draw Y axis caption
-    // // Info on how to rotate text on the canvas:
-    // //   https://newspaint.wordpress.com/2014/05/22/writing-rotated-text-on-a-javascript-canvas/
-    // let spin_x = display_width / 2.0;
-    // let spin_y = y_top + ((y_base - y_top) / 2.0) + 50.0; // TODO: Figure out why 50 works well here, then autocalculate it for other graphs
-    // let y_axis_caption = "Number of items";
-    // ctx.save();
-    // ctx.translate(spin_x, spin_y);
-    // ctx.rotate(3*Pi/2);
-    // ctx.set_font(format!("italic {}px serif", axis_caption_font_size).into());
-    // ctx.set_fill_style(&"black".into());
-    // ctx.set_text_align(&"left".into());
-    // ctx.fill_text(y_axis_caption, 0.0, -spin_x+axis_left-text_gap-int(axis_caption_font_size)-30.0); // TODO: Figure out why 30 works well here, then autocalculate it for other graphs
-    // ctx.restore();
-    //
-    // // Draw X axis caption
-    // let x_axis_caption = "Category";
-    // ctx.set_font(format!("italic {}px serif", axis_caption_font_size).into());
-    // let cap_left = display_width / 2.0;
-    // ctx.fill_text(x_axis_caption, cap_left, bar_label_y+text_gap+axis_caption_font_size);
-    //
-    // // Draw a border around the graph area
-    // ctx.set_line_width(2);
-    // ctx.set_stroke_style(&"white".into());
-    // ctx.begin_path();
-    // ctx.move_to(0, 0);
-    // ctx.line_to(width, 0);
-    // ctx.line_to(width, height);
-    // ctx.line_to(0, height);
-    // ctx.close_path();
-    // ctx.stroke();
-    // ctx.set_line_width(2);
-    // ctx.set_stroke_style(&"black".into());
-    // ctx.begin_path();
-    // ctx.move_to(border, border);
-    // ctx.line_to(display_width, border);
-    // ctx.line_to(display_width, display_height);
-    // ctx.line_to(border, display_height);
-    // ctx.close_path();
-    // ctx.stroke();
-}
+    // Draw simple bar graph using the category data
+    let mut hue = palette;
+    ctx.set_stroke_style(&"black".into());
+    ctx.set_text_align(&"center");
+    let mut font_size;
+    for (label, num) in &item_counts {
+        // Draw the bar
+        let bar_height = *num as f64 * unit_size;
+        hue += GOLDEN_RATIO_CONJUGATE;
+        hue = hue % 1.0;
+        ctx.set_fill_style(&hsv_to_rgb(hue, 0.5, 0.95).into());
+        ctx.begin_path();
+        ctx.move_to(bar_left, base_line);
+        ctx.line_to(bar_left + bar_width, base_line);
+        ctx.line_to(bar_left + bar_width, base_line - bar_height);
+        ctx.line_to(bar_left, base_line - bar_height);
+        ctx.close_path();
+        ctx.fill();
+        ctx.stroke();
+        ctx.set_fill_style(&"black".into());
 
+        // Draw the bar label horizontally centered
+        font_size = format!("{}px serif", x_label_font_size);
+        ctx.set_font(&font_size);
+        let text_left = bar_width / 2.0;
+        ctx.fill_text(label, bar_left + text_left, bar_label_y);
+
+        // Draw the item count centered above the top of the bar
+        ctx.set_font(&format!("{}px serif", x_count_font_size));
+        ctx.fill_text(&format!("{}", num), bar_left + text_left, base_line - bar_height - text_gap);
+        bar_left += bar_gap + bar_width;
+    }
+
+    // Draw axis
+    ctx.set_line_width(axis_thickness);
+    ctx.begin_path();
+    ctx.move_to(axis_right, y_base);
+    ctx.line_to(axis_left-axis_thickness-text_gap, y_base);
+    ctx.line_to(axis_left-axis_thickness-text_gap, y_top);
+    ctx.stroke();
+
+    // Draw title
+    let title = "Marine Litter Survey - Keep Northern Ireland Beautiful";
+    ctx.set_font(&format!("bold {}px serif", title_font_size));
+    ctx.set_text_align(&"center");
+    let title_left = display_width / 2.0;
+    ctx.fill_text(title, title_left, top + title_font_size + 20.0);
+
+    // Draw Y axis caption
+    // Info on how to rotate text on the canvas:
+    //   https://newspaint.wordpress.com/2014/05/22/writing-rotated-text-on-a-javascript-canvas/
+    let spin_x = display_width / 2.0;
+    let spin_y = y_top + ((y_base - y_top) / 2.0) + 50.0; // TODO: Figure out why 50 works well here, then autocalculate it for other graphs
+    let y_axis_caption = "Number of items";
+    ctx.save();
+    ctx.translate(spin_x, spin_y);
+    ctx.rotate(3.0 * std::f64::consts::PI / 2.0);
+    ctx.set_font(&format!("italic {}px serif", axis_caption_font_size));
+    ctx.set_fill_style(&"black".into());
+    ctx.set_text_align(&"left");
+    ctx.fill_text(y_axis_caption, 0.0, -spin_x + axis_left - text_gap - axis_caption_font_size - 30.0); // TODO: Figure out why 30 works well here, then autocalculate it for other graphs
+    ctx.restore();
+
+    // Draw X axis caption
+    let x_axis_caption = "Category";
+    ctx.set_font(&format!("italic {}px serif", axis_caption_font_size));
+    let cap_left = display_width / 2.0;
+    ctx.fill_text(x_axis_caption, cap_left, bar_label_y + text_gap + axis_caption_font_size);
+
+    // Draw a border around the graph area
+    ctx.set_line_width(2.0);
+    ctx.set_stroke_style(&"white".into());
+    ctx.begin_path();
+    ctx.move_to(0.0, 0.0);
+    ctx.line_to(width, 0.0);
+    ctx.line_to(width, height);
+    ctx.line_to(0.0, height);
+    ctx.close_path();
+    ctx.stroke();
+    ctx.set_line_width(2.0);
+    ctx.set_stroke_style(&"black".into());
+    ctx.begin_path();
+    ctx.move_to(border, border);
+    ctx.line_to(display_width, border);
+    ctx.line_to(display_width, display_height);
+    ctx.line_to(border, display_height);
+    ctx.close_path();
+    ctx.stroke();
+}
 
 // Ported from the JS here: https://martin.ankerl.com/2009/12/09/how-to-create-random-colors-programmatically/
 fn hsv_to_rgb(h: f64, s: f64, v: f64) -> String {

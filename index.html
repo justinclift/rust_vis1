@@ -109,7 +109,7 @@
 		// Launch the wasm file
 		async function run() {
 			await wasm_bindgen('./pkg/rust_vis1_bg.wasm');
-			draw_bar_chart($scope.db);
+			draw_bar_chart(1.0, $scope.db);
 
 			// Set up event handlers
 			// document.addEventListener("keydown", keyPressHandler);
