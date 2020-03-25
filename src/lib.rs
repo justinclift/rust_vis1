@@ -1,7 +1,29 @@
 use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use js_sys;
+use serde::{Serialize, Deserialize};
+
+extern crate console_error_panic_hook;
+use std::panic;
+
+#[derive(Serialize, Deserialize)]
+pub struct Record {
+    Name: String,
+    Type: i32,
+    Value: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct DbData {
+    Tablename: String,
+    Records: Vec<Vec<Record>>,
+    ColNames: Vec<String>,
+    RowCount: i32,
+    ColCount: i32,
+    SortCol: String,
+    SortDir: String,
+    Offset: i32,
+}
 
 // * Helper functions, as the web_sys pieces don't seem capable of being stored in globals *
 fn window() -> web_sys::Window {
@@ -17,105 +39,75 @@ fn document() -> web_sys::Document {
 // DrawBarChart draws a simple bar chart, with a colour palette generated from the provided seed value
 #[wasm_bindgen]
 pub fn main() {
-    web_sys::console::log_1(&"Stuff".into());
-//     let canvas: web_sys::HtmlCanvasElement = document().get_element_by_id("barchart").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
-//
-//     let mut width = canvas.width() as f64;
-//     let mut height = canvas.height() as f64;
-//     // {
-//     //     // Update the height in the global
-//     //     let mut h = HEIGHT.lock().unwrap();
-//     //     *h = height;
-//     // }
-//
-//     // Handle window resizing
-//     let current_body_width = window().inner_width().unwrap().as_f64().unwrap();
-//     let current_body_height = window().inner_height().unwrap().as_f64().unwrap();
-//     if current_body_width != width || current_body_height != height {
-//         width = current_body_width;
-//         height = current_body_height;
-//         canvas.set_attribute("width", &width.to_string());
-//         canvas.set_attribute("height", &height.to_string());
-//     }
-// // canvas.set_tab_index(0); // Not sure if this is needed
-//
-// // fn to_js_error(error: Error) -> JsValue {
-// //     JsValue::from(js_sys::Error::new(&format!("{:?}", error)))
-// // }
-//
-//     // Get the 2D context for the canvas
-//     // let ctx = canvas.get_context("2d").unwrap().unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap();
+    panic::set_hook(Box::new(console_error_panic_hook::hook));
+    let canvas: web_sys::HtmlCanvasElement = document().get_element_by_id("barchart").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
 
-    web_sys::console::log_1(&"Retrieving global object".into());
-    let gbl = js_sys::global();
-    if gbl.is_object() {
-        web_sys::console::log_1(&"Success, gbl is an object".into());
-    } else {
-        web_sys::console::log_1(&"Failure, could not retrieve global object".into());
-        return;
-    }
-
-    let scope = js_sys::Reflect::get(&gbl, &"$scope".into()).unwrap();
-    if scope.is_object() {
-        web_sys::console::log_1(&"$scope: is object".into());
-    } else {
-        web_sys::console::log_1(&"$scope: NOT object".into());
-    }
-    if scope.is_undefined() {
-        web_sys::console::log_1(&"$scope: is undefined".into());
-    } else {
-        web_sys::console::log_1(&"$scope: NOT undefined".into());
-    }
-
-    let db = js_sys::Reflect::get(&scope, &"db".into()).unwrap();
-    if db.is_object() {
-        web_sys::console::log_1(&"db: is object".into());
-    } else {
-        web_sys::console::log_1(&"db: NOT object".into());
-    }
-    if db.is_undefined() {
-        web_sys::console::log_1(&"db: is undefined".into());
-    } else {
-        web_sys::console::log_1(&"db: NOT undefined".into());
-    }
-
-
-    match js_sys::Reflect::own_keys(&db) {
-        Ok(T) => {
-            web_sys::console::log_1(&"own_keys(): Ok returned".into());
-            for i in T.iter() {
-                web_sys::console::log_2(&"Array value: ".into(), &i.into());
-            }
-        },
-        Err(E) => {
-            web_sys::console::log_1(&"own_keys(): Error returned".into());
-        }
-    };
-
-
-    // web_sys::console::log_1(&"Reached here 004".into());
-    // web_sys::console::log_1(&format!("{:?}", db.as_string()).into());
-    // let db = js_sys::Reflect::get(&"$scope".into(), &"db".into())?;
-    // db := js.Global().Get("$scope").Get("db")
-    //
-    // // rows := db.Get("Records")
-    // // num_rows := rows.Length()
-    //
-    // // Count the number of items for each category
-    // let mut highest_val = 0;
-    // let item_counts: HashMap<String, i32> = HashMap::new();
-    // // var row js.Value
-    // for (i, n) in 0..num_rows {
-    //     row = rows.Index(i);
-    //     let cat_name = row.Index(10).Get("Value").String();
-    //     let item_count = strconv.Atoi(row.Index(12).Get("Value").String());
-    //     // if err != nil {
-    //     //     println(err)
-    //     // }
-    //     let c = item_counts[cat_name];
-    //     item_counts[cat_name] = c + item_count;
+    let mut width = canvas.width() as f64;
+    let mut height = canvas.height() as f64;
+    // {
+    //     // Update the height in the global
+    //     let mut h = HEIGHT.lock().unwrap();
+    //     *h = height;
     // }
-    //
+
+    // Handle window resizing
+    let current_body_width = window().inner_width().unwrap().as_f64().unwrap();
+    let current_body_height = window().inner_height().unwrap().as_f64().unwrap();
+    if current_body_width != width || current_body_height != height {
+        width = current_body_width;
+        height = current_body_height;
+        canvas.set_attribute("width", &width.to_string());
+        canvas.set_attribute("height", &height.to_string());
+    }
+// canvas.set_tab_index(0); // Not sure if this is needed
+
+// fn to_js_error(error: Error) -> JsValue {
+//     JsValue::from(js_sys::Error::new(&format!("{:?}", error)))
+// }
+
+    // Get the 2D context for the canvas
+    let ctx = canvas.get_context("2d").unwrap().unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap();
+
+    // Import the data from the web page
+    let data = js_sys::global();
+    let data = js_sys::Reflect::get(&data, &"$scope".into()).unwrap();
+    let data = js_sys::Reflect::get(&data, &"db".into()).unwrap();
+    // if db.is_object() {
+    //     web_sys::console::log_1(&"db: is object".into());
+    // } else {
+    //     web_sys::console::log_1(&"db: NOT object".into());
+    // }
+    // if db.is_undefined() {
+    //     web_sys::console::log_1(&"db: is undefined".into());
+    // } else {
+    //     web_sys::console::log_1(&"db: NOT undefined".into());
+    // }
+
+    let data: DbData = data.into_serde().unwrap();
+    web_sys::console::log_2(&"*** Table name ***".into(), &data.Tablename.into());
+    let rows = data.Records;
+    let num_rows = rows.len();
+
+    // Count the number of items for each category
+    let mut highest_val = 0;
+    let item_counts: HashMap<String, i32> = HashMap::new();
+    // var row js.Value
+    let mut row: &Vec<Record>;
+    for n in rows {
+    // for (i, n) in rows.iter().enumerate() {
+    // for (i, n) in 0..num_rows.iter().enumerate() {
+    //     row = &rows[i];
+        // row = rows.Index(i);
+        // let cat_name = row[10].Value.String();
+        // let cat_name = row.Index(10).Get("Value").String();
+        // let item_count = strconv.Atoi(row.Index(12).Get("Value").String());
+        // if err != nil {
+        //     println(err)
+        // }
+        // let c = item_counts[cat_name];
+        // item_counts[cat_name] = c + item_count;
+    }
+
     // // Determine the highest count value, so we can automatically size the graph to fit
     // for item_count in item_counts.iter() {
     //     if item_count > highest_val {
