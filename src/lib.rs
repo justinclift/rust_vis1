@@ -1,7 +1,7 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use serde::{Serialize, Deserialize};
 
 extern crate console_error_panic_hook;
 use std::panic;
@@ -67,7 +67,12 @@ pub fn draw_bar_chart(palette: f64, js_data: &JsValue) {
     // Display the number of items for each category to the javascript console, for debugging purposes
     if DEBUG {
         for (cat, cnt) in &item_counts {
-            web_sys::console::log_4(&"Category: ".into(), &(*cat).into(), &" Count: ".into(), &(*cnt).into());
+            web_sys::console::log_4(
+                &"Category: ".into(),
+                &(*cat).into(),
+                &" Count: ".into(),
+                &(*cnt).into(),
+            );
         }
     }
 
@@ -83,7 +88,11 @@ pub fn draw_bar_chart(palette: f64, js_data: &JsValue) {
 
     // * Canvas setup *
 
-    let canvas: web_sys::HtmlCanvasElement = document().get_element_by_id("barchart").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
+    let canvas: web_sys::HtmlCanvasElement = document()
+        .get_element_by_id("barchart")
+        .unwrap()
+        .dyn_into::<web_sys::HtmlCanvasElement>()
+        .unwrap();
     let mut width = canvas.width() as f64;
     let mut height = canvas.height() as f64;
 
@@ -99,7 +108,12 @@ pub fn draw_bar_chart(palette: f64, js_data: &JsValue) {
     // canvas.set_tab_index(0); // Not sure if this is needed
 
     // Get the 2D context for the canvas
-    let ctx = canvas.get_context("2d").unwrap().unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap();
+    let ctx = canvas
+        .get_context("2d")
+        .unwrap()
+        .unwrap()
+        .dyn_into::<web_sys::CanvasRenderingContext2d>()
+        .unwrap();
 
     // * Bar graph setup *
 
@@ -137,14 +151,18 @@ pub fn draw_bar_chart(palette: f64, js_data: &JsValue) {
     let b = horiz_size / num_bars;
     let bar_width = b * 0.6;
     let bar_gap = b - bar_width;
-    let mut bar_left= ((graph_border * 2.0) + bar_gap) / 2.0;
-    let axis_left= ((graph_border * 2.0) + bar_gap) / 2.0;
-    let axis_right= axis_left + (num_bars * bar_width) + ((num_bars - 1.0) * bar_gap) + axis_thickness + text_gap;
+    let mut bar_left = ((graph_border * 2.0) + bar_gap) / 2.0;
+    let axis_left = ((graph_border * 2.0) + bar_gap) / 2.0;
+    let axis_right = axis_left
+        + (num_bars * bar_width)
+        + ((num_bars - 1.0) * bar_gap)
+        + axis_thickness
+        + text_gap;
 
     // Calculate the y axis units of measurement
     let (y_max, y_step) = axis_max(highest_val);
-    let y_unit= y_length / y_max;
-    let y_unit_step= y_unit * y_step;
+    let y_unit = y_length / y_max;
+    let y_unit_step = y_unit * y_step;
 
     // TODO: Sort the categories in some useful way
 
@@ -201,7 +219,11 @@ pub fn draw_bar_chart(palette: f64, js_data: &JsValue) {
 
         // Draw the item count centered above the top of the bar
         ctx.set_font(&format!("{}px serif", x_count_font_size));
-        ctx.fill_text(&format!("{}", num), bar_left + text_left, base_line - bar_height - text_gap);
+        ctx.fill_text(
+            &format!("{}", num),
+            bar_left + text_left,
+            base_line - bar_height - text_gap,
+        );
         bar_left += bar_gap + bar_width;
     }
 
@@ -209,8 +231,8 @@ pub fn draw_bar_chart(palette: f64, js_data: &JsValue) {
     ctx.set_line_width(axis_thickness);
     ctx.begin_path();
     ctx.move_to(axis_right, y_base);
-    ctx.line_to(axis_left-axis_thickness-text_gap, y_base);
-    ctx.line_to(axis_left-axis_thickness-text_gap, y_top);
+    ctx.line_to(axis_left - axis_thickness - text_gap, y_base);
+    ctx.line_to(axis_left - axis_thickness - text_gap, y_top);
     ctx.stroke();
 
     // Draw title
@@ -232,14 +254,22 @@ pub fn draw_bar_chart(palette: f64, js_data: &JsValue) {
     ctx.set_font(&format!("italic {}px serif", axis_caption_font_size));
     ctx.set_fill_style(&"black".into());
     ctx.set_text_align(&"left");
-    ctx.fill_text(y_axis_caption, 0.0, -spin_x + axis_left - text_gap - axis_caption_font_size - 30.0); // TODO: Figure out why 30 works well here, then autocalculate it for other graphs
+    ctx.fill_text(
+        y_axis_caption,
+        0.0,
+        -spin_x + axis_left - text_gap - axis_caption_font_size - 30.0, // TODO: Figure out why 30 works well here, then autocalculate it for other graphs
+    );
     ctx.restore();
 
     // Draw X axis caption
     let x_axis_caption = "Category";
     ctx.set_font(&format!("italic {}px serif", axis_caption_font_size));
     let cap_left = display_width / 2.0;
-    ctx.fill_text(x_axis_caption, cap_left, bar_label_y + text_gap + axis_caption_font_size);
+    ctx.fill_text(
+        x_axis_caption,
+        cap_left,
+        bar_label_y + text_gap + axis_caption_font_size,
+    );
 
     // Draw a border around the graph area
     ctx.set_line_width(2.0);
