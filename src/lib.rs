@@ -26,7 +26,7 @@ pub struct DbData {
 }
 
 const GOLDEN_RATIO_CONJUGATE: f64 = 0.6180;
-const DEBUG: bool = true;
+const DEBUG: bool = false;
 
 // * Helper functions, as the web_sys pieces don't seem capable of being stored in globals *
 fn window() -> web_sys::Window {
